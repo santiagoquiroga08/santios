@@ -15,6 +15,14 @@ export const initDB = (): Promise<Database> => {
       const db = await Database.load('sqlite:tasks.db');
       
       await db.execute(`
+        CREATE TABLE IF NOT EXISTS categories (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL UNIQUE,
+          color TEXT
+        )
+      `);
+
+      await db.execute(`
         CREATE TABLE IF NOT EXISTS tasks (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           title TEXT NOT NULL,
@@ -24,18 +32,22 @@ export const initDB = (): Promise<Database> => {
           due_date TEXT,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          completed_at DATETIME
+          completed_at DATETIME,
+          category_id INTEGER REFERENCES categories(id)
         )
       `);
 
       // Migración mínima: añadir la columna updated_at si la tabla ya existía sin ella.
       try {
         await db.execute(`ALTER TABLE tasks ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP`);
-      } catch (e) {
-        // Fallará silenciosamente si la columna ya existe, lo cual es el comportamiento esperado.
-      }
+      } catch (e) {}
 
-      console.log('✅ Base de datos conectada y tabla tasks verificada/creada con éxito.');
+      // Migración mínima: añadir la columna category_id
+      try {
+        await db.execute(`ALTER TABLE tasks ADD COLUMN category_id INTEGER REFERENCES categories(id)`);
+      } catch (e) {}
+
+      console.log('✅ Base de datos conectada y tablas verificadas/creadas con éxito.');
       return db;
     } catch (error) {
       dbPromise = null; // Si falla, reseteamos para poder reintentar

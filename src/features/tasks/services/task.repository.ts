@@ -8,16 +8,10 @@ import { Task, CreateTaskInput, UpdateTaskInput, TaskRow } from '../types';
  * This ensures that React components don't execute SQL directly.
  */
 export class TaskRepository {
-  /**
-   * Obtiene la instancia de la base de datos de manera segura.
-   */
   public static async getDb() {
     return await initDB();
   }
 
-  /**
-   * Mapea una fila de SQLite al modelo TypeScript.
-   */
   private static mapRowToTask(row: TaskRow): Task {
     return {
       id: row.id,
@@ -26,6 +20,9 @@ export class TaskRepository {
       status: row.completed === 1 ? 'completed' : 'pending',
       priority: row.priority as Task['priority'],
       due_date: row.due_date || undefined,
+      category_id: row.category_id || undefined,
+      category_name: row.category_name || undefined,
+      category_color: row.category_color || undefined,
       created_at: row.created_at,
       updated_at: row.updated_at,
       completed_at: row.completed_at || undefined,
@@ -35,7 +32,12 @@ export class TaskRepository {
   public static async getTasks(): Promise<Task[]> {
     try {
       const db = await this.getDb();
-      const rows = await db.select<TaskRow[]>('SELECT * FROM tasks ORDER BY created_at DESC');
+      const rows = await db.select<TaskRow[]>(`
+        SELECT t.*, c.name as category_name, c.color as category_color 
+        FROM tasks t
+        LEFT JOIN categories c ON t.category_id = c.id
+        ORDER BY t.created_at DESC
+      `);
       return rows.map(this.mapRowToTask);
     } catch (error) {
       throw new Error(`Failed to fetch tasks: ${error instanceof Error ? error.message : String(error)}`);
@@ -45,7 +47,12 @@ export class TaskRepository {
   public static async getTaskById(id: number): Promise<Task> {
     try {
       const db = await this.getDb();
-      const rows = await db.select<TaskRow[]>('SELECT * FROM tasks WHERE id = $1', [id]);
+      const rows = await db.select<TaskRow[]>(`
+        SELECT t.*, c.name as category_name, c.color as category_color 
+        FROM tasks t
+        LEFT JOIN categories c ON t.category_id = c.id
+        WHERE t.id = $1
+      `, [id]);
       if (rows.length === 0) {
         throw new Error(`Task with ID ${id} not found`);
       }
@@ -62,13 +69,14 @@ export class TaskRepository {
       const priority = input.priority || 'medium';
 
       const result = await db.execute(
-        `INSERT INTO tasks (title, description, priority, due_date, created_at, updated_at, completed) 
-         VALUES ($1, $2, $3, $4, $5, $6, 0)`,
+        `INSERT INTO tasks (title, description, priority, due_date, category_id, created_at, updated_at, completed) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 0)`,
         [
           input.title,
           input.description || null,
           priority,
           input.due_date || null,
+          input.category_id || null,
           now,
           now
         ]
@@ -85,19 +93,19 @@ export class TaskRepository {
       const db = await this.getDb();
       const now = new Date().toISOString();
       
-      // Obtener tarea actual para no sobreescribir con nulls accidentalmente
       const currentTask = await this.getTaskById(id);
 
       const newTitle = input.title !== undefined ? input.title : currentTask.title;
       const newDescription = input.description !== undefined ? input.description : (currentTask.description || null);
       const newPriority = input.priority !== undefined ? input.priority : currentTask.priority;
       const newDueDate = input.due_date !== undefined ? input.due_date : (currentTask.due_date || null);
+      const newCategoryId = input.category_id !== undefined ? input.category_id : (currentTask.category_id || null);
 
       await db.execute(
         `UPDATE tasks 
-         SET title = $1, description = $2, priority = $3, due_date = $4, updated_at = $5 
-         WHERE id = $6`,
-        [newTitle, newDescription, newPriority, newDueDate, now, id]
+         SET title = $1, description = $2, priority = $3, due_date = $4, category_id = $5, updated_at = $6 
+         WHERE id = $7`,
+        [newTitle, newDescription, newPriority, newDueDate, newCategoryId, now, id]
       );
 
       return await this.getTaskById(id);
@@ -135,6 +143,15 @@ export class TaskRepository {
       await db.execute('DELETE FROM tasks WHERE id = $1', [id]);
     } catch (error) {
       throw new Error(`Failed to delete task ${id}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  public static async deleteAllCompletedTasks(): Promise<void> {
+    try {
+      const db = await this.getDb();
+      await db.execute('DELETE FROM tasks WHERE completed = 1');
+    } catch (error) {
+      throw new Error(`Failed to delete completed tasks: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 }
