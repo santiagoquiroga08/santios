@@ -1,4 +1,4 @@
-import { useState, KeyboardEvent } from 'react';
+import { useState, FormEvent } from 'react';
 
 interface QuickAddTaskProps {
   onAdd: (title: string) => Promise<void>;
@@ -7,9 +7,13 @@ interface QuickAddTaskProps {
 export function QuickAddTask({ onAdd }: QuickAddTaskProps) {
   const [title, setTitle] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Mantenemos autoFocus solo para escritorio (mejora la UX en PC sin afectar el móvil)
+  const isDesktop = typeof window !== 'undefined' && window.innerWidth > 768;
 
-  const handleKeyDown = async (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && title.trim() && !isSubmitting) {
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (title.trim() && !isSubmitting) {
       setIsSubmitting(true);
       await onAdd(title.trim());
       setTitle('');
@@ -18,17 +22,18 @@ export function QuickAddTask({ onAdd }: QuickAddTaskProps) {
   };
 
   return (
-    <div className="quick-add-container">
+    <form className="quick-add-container" onSubmit={handleSubmit}>
       <input
         type="text"
         className="quick-add-input"
         placeholder="+ ¿Qué necesitas hacer?"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        onKeyDown={handleKeyDown}
         disabled={isSubmitting}
-        autoFocus
+        autoFocus={isDesktop}
       />
-    </div>
+      {/* Botón submit oculto para asegurar la compatibilidad máxima en teclados iOS */}
+      <button type="submit" style={{ display: 'none' }}>Agregar</button>
+    </form>
   );
 }

@@ -1,26 +1,32 @@
 import { useEffect, useState } from 'react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import { initDB } from './services/database';
+import { isTauri } from './services/di';
 import { TaskApp } from './features/tasks/components/TaskApp';
+import { AuthProvider } from './features/auth/context/AuthContext';
 
 function App() {
-  const [dbReady, setDbReady] = useState(false);
+  const [dbReady, setDbReady] = useState(!isTauri); // If web, DB is ready instantly
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    initDB()
-      .then(() => {
-        setDbReady(true);
-      })
-      .catch((error) => {
-        console.error("Fallo al conectar la base de datos:", error);
-        setErrorMsg(String(error));
-      });
+    if (!isTauri) return;
+
+    // Solo cargamos la base de datos local si estamos en Tauri
+    import('./services/database').then(({ initDB }) => {
+      initDB()
+        .then(() => setDbReady(true))
+        .catch((error) => {
+          console.error("Fallo al conectar la base de datos:", error);
+          setErrorMsg(String(error));
+        });
+    });
   }, []);
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    if (!isTauri) return;
+    
+    const handleKeyDown = async (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        const { getCurrentWindow } = await import('@tauri-apps/api/window');
         getCurrentWindow().hide().catch(err => console.error("Error hiding window:", err));
       }
     };
@@ -30,14 +36,28 @@ function App() {
   }, []);
 
   if (errorMsg) {
-    return <div style={{ padding: '20px', color: 'red' }}>❌ Error: {errorMsg}</div>;
+    return (
+      <div className="app-loading" style={{ flexDirection: 'column', gap: '8px' }}>
+        <span style={{ fontSize: '22px' }}>❌</span>
+        <span style={{ color: '#f87171', fontSize: '13px', maxWidth: '340px', textAlign: 'center' }}>{errorMsg}</span>
+      </div>
+    );
   }
 
   if (!dbReady) {
-    return <div style={{ padding: '20px', color: 'orange' }}>⏳ Cargando base de datos...</div>;
+    return (
+      <div className="app-loading">
+        <div className="spinner" />
+        <span>Cargando base de datos…</span>
+      </div>
+    );
   }
 
-  return <TaskApp />;
+  return (
+    <AuthProvider>
+      <TaskApp />
+    </AuthProvider>
+  );
 }
 
 export default App;

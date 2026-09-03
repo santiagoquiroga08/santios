@@ -1,0 +1,24 @@
+{
+  "short_name": "Todo List",
+  "name": "Todo List",
+  "description": "Aplicación de tareas y productividad personal",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#18181b",
+  "theme_color": "#18181b",
+  "display": "standalone",
+  "orientation": "portrait-primary"
+}

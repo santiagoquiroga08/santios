@@ -1,15 +1,14 @@
 import { useState, KeyboardEvent, useRef, useEffect } from 'react';
 import { Task, Category, UpdateTaskInput, TaskPriority } from '../types';
 import { getLocalTodayDateString } from '../utils/date';
-import { open } from '@tauri-apps/plugin-shell';
 
 interface TaskItemProps {
   task: Task;
   categories: Category[];
   autoExpand?: boolean;
-  onToggle: (id: number) => void;
-  onDelete: (id: number) => void;
-  onUpdate: (id: number, updates: UpdateTaskInput) => void;
+  onToggle: (id: string) => void;
+  onDelete: (id: string) => void;
+  onUpdate: (id: string, updates: UpdateTaskInput) => void;
   onCreateCategory: (name: string, color?: string | null) => Promise<Category | null>;
   onClearAutoExpand: () => void;
 }
@@ -36,10 +35,15 @@ export function TaskItem({ task, categories, autoExpand, onToggle, onDelete, onU
           <a 
             key={i} 
             href={part} 
-            onClick={(e) => {
+            onClick={async (e) => {
               e.preventDefault();
               e.stopPropagation();
-              open(part);
+              if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+                const { open } = await import('@tauri-apps/plugin-shell');
+                open(part);
+              } else {
+                window.open(part, '_blank');
+              }
             }}
             style={{ color: 'var(--accent-color)', textDecoration: 'underline' }}
           >
@@ -119,7 +123,7 @@ export function TaskItem({ task, categories, autoExpand, onToggle, onDelete, onU
     } else if (val === 'none') {
       onUpdate(task.id, { category_id: null });
     } else {
-      onUpdate(task.id, { category_id: parseInt(val, 10) });
+      onUpdate(task.id, { category_id: val });
     }
   };
 
@@ -158,9 +162,9 @@ export function TaskItem({ task, categories, autoExpand, onToggle, onDelete, onU
               )}
             </div>
             
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px', flexWrap: 'wrap' }}>
+            <div className="task-meta-row">
               {task.due_date && (
-                <span className={`task-due-badge ${isOverdue ? 'text-danger' : ''}`} style={{ marginTop: 0 }}>
+                <span className={`task-due-badge ${isOverdue ? 'text-danger' : ''}`}>
                   <svg viewBox="0 0 24 24" width="10" height="10" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
                     <line x1="16" y1="2" x2="16" y2="6"></line>

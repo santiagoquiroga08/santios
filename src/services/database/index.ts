@@ -13,18 +13,22 @@ export const initDB = (): Promise<Database> => {
       console.log('⏳ Intentando conectar a la base de datos...');
       
       const db = await Database.load('sqlite:tasks.db');
-      
       await db.execute(`
         CREATE TABLE IF NOT EXISTS categories (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL UNIQUE,
-          color TEXT
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          color TEXT,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          deleted_at DATETIME DEFAULT NULL,
+          UNIQUE(user_id, name)
         )
       `);
 
       await db.execute(`
         CREATE TABLE IF NOT EXISTS tasks (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
           title TEXT NOT NULL,
           description TEXT,
           completed BOOLEAN NOT NULL DEFAULT 0,
@@ -33,19 +37,15 @@ export const initDB = (): Promise<Database> => {
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           completed_at DATETIME,
-          category_id INTEGER REFERENCES categories(id)
+          deleted_at DATETIME DEFAULT NULL,
+          category_id TEXT REFERENCES categories(id)
         )
       `);
 
-      // Migración mínima: añadir la columna updated_at si la tabla ya existía sin ella.
-      try {
-        await db.execute(`ALTER TABLE tasks ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP`);
-      } catch (e) {}
-
-      // Migración mínima: añadir la columna category_id
-      try {
-        await db.execute(`ALTER TABLE tasks ADD COLUMN category_id INTEGER REFERENCES categories(id)`);
-      } catch (e) {}
+      // Parche automático para arreglar el formato de los Timestamps nativos de SQLite
+      // y convertirlos al formato ISO 8601 (con T y Z) para que la comparación de strings en el Sync funcione.
+      await db.execute(`UPDATE categories SET updated_at = replace(updated_at, ' ', 'T') || 'Z' WHERE updated_at NOT LIKE '%T%' AND updated_at IS NOT NULL;`);
+      await db.execute(`UPDATE tasks SET updated_at = replace(updated_at, ' ', 'T') || 'Z' WHERE updated_at NOT LIKE '%T%' AND updated_at IS NOT NULL;`);
 
       console.log('✅ Base de datos conectada y tablas verificadas/creadas con éxito.');
       return db;

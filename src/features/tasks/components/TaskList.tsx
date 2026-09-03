@@ -6,10 +6,10 @@ interface TaskListProps {
   tasks: Task[];
   categories: Category[];
   currentView: ViewType;
-  autoExpandTaskId: number | null;
-  onToggle: (id: number) => void;
-  onDelete: (id: number) => void;
-  onUpdate: (id: number, updates: UpdateTaskInput) => void;
+  autoExpandTaskId: string | null;
+  onToggle: (id: string) => void;
+  onDelete: (id: string) => void;
+  onUpdate: (id: string, updates: UpdateTaskInput) => void;
   onCreateCategory: (name: string, color?: string | null) => Promise<Category | null>;
   onClearAutoExpand: () => void;
 }

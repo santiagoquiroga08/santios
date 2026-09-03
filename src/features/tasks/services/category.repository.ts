@@ -1,32 +1,37 @@
 import { initDB } from '../../../services/database';
 import { Category } from '../types';
+import { ICategoryRepository } from '../types/repositories';
 
-export class CategoryRepository {
-  static async getCategories(): Promise<Category[]> {
+export class TauriCategoryRepository implements ICategoryRepository {
+  async getCategories(userId: string): Promise<Category[]> {
     const db = await initDB();
-    const rows = await db.select<Category[]>('SELECT * FROM categories ORDER BY name ASC');
+    const rows = await db.select<Category[]>('SELECT * FROM categories WHERE deleted_at IS NULL AND user_id = $1 ORDER BY name ASC', [userId]);
     return rows;
   }
 
-  static async createCategory(name: string, color: string | null = null): Promise<Category> {
+  async createCategory(name: string, color: string | null = null, userId: string): Promise<Category> {
     const db = await initDB();
-    const result = await db.execute(
-      'INSERT INTO categories (name, color) VALUES ($1, $2)',
-      [name, color]
+    const newId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    await db.execute(
+      'INSERT INTO categories (id, user_id, name, color, updated_at) VALUES ($1, $2, $3, $4, $5)',
+      [newId, userId, name, color, now]
     );
     
     return {
-      id: result.lastInsertId as number,
+      id: newId,
+      user_id: userId,
       name,
       color
     };
   }
 
-  static async deleteCategory(id: number): Promise<void> {
+  async deleteCategory(id: string, userId: string): Promise<void> {
     const db = await initDB();
-    // 1. Update tasks to set category_id to NULL
-    await db.execute('UPDATE tasks SET category_id = NULL WHERE category_id = $1', [id]);
-    // 2. Delete the category
-    await db.execute('DELETE FROM categories WHERE id = $1', [id]);
+    const now = new Date().toISOString();
+    // 1. Update tasks to set category_id to NULL so tasks aren't attached to a deleted category
+    await db.execute('UPDATE tasks SET category_id = NULL, updated_at = $1 WHERE category_id = $2 AND user_id = $3', [now, id, userId]);
+    // 2. Soft delete the category
+    await db.execute('UPDATE categories SET deleted_at = $1, updated_at = $1 WHERE id = $2 AND user_id = $3', [now, id, userId]);
   }
 }
