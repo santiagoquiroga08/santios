@@ -1,6 +1,6 @@
+import { useState } from 'react';
 import { Task, Category } from '../types';
 import { getLocalTodayDateString } from '../utils/date';
-import { initCloudSchema } from '../../../services/cloud/schema';
 
 export type ViewType = 'all' | 'today' | 'upcoming' | 'overdue' | 'completed' | 'listas' | string;
 
@@ -11,9 +11,12 @@ interface SidebarProps {
   onViewChange: (view: ViewType) => void;
   onDeleteCategory?: (id: string) => void;
   isSyncing?: boolean;
+  onCreateCategory?: (name: string, color?: string | null) => Promise<Category | null>;
 }
 
-export function Sidebar({ currentView, tasks, categories, onViewChange, onDeleteCategory, isSyncing }: SidebarProps) {
+export function Sidebar({ currentView, tasks, categories, onViewChange, onDeleteCategory, isSyncing, onCreateCategory }: SidebarProps) {
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const todayStr = getLocalTodayDateString();
 
   // Calcular contadores
@@ -27,34 +30,28 @@ export function Sidebar({ currentView, tasks, categories, onViewChange, onDelete
 
   const handleDelete = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (window.confirm('Â¿Eliminar esta categorÃ­a? Las tareas no se borrarÃ¡n.')) {
+    if (window.confirm('¿Eliminar esta categoría? Las tareas no se borrarán.')) {
       onDeleteCategory?.(id);
     }
   };
 
-  const handleInitTurso = async () => {
-    try {
-      await initCloudSchema();
-      // Como reiniciamos la base de datos remota, debemos forzar a que la prÃ³xima 
-      // sincronizaciÃ³n sea total desde cero. Para ello, borramos los timestamps.
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('last_sync_at_')) {
-          keysToRemove.push(key);
-        }
-      }
-      keysToRemove.forEach(k => localStorage.removeItem(k));
-      
-      alert('Â¡Esquema creado en Turso exitosamente! (Timestamp de sync reseteado)');
-    } catch (error) {
-      alert('Error al inicializar Turso: ' + String(error));
+  const handleCreateCategorySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategoryName.trim() || isCreatingCategory) return;
+    setIsCreatingCategory(true);
+    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+    const randomColor = colors[Math.floor(Math.random() * colors.length)];
+    const newCat = await onCreateCategory?.(newCategoryName.trim(), randomColor);
+    if (newCat) {
+      onViewChange(newCat.id);
+      setNewCategoryName('');
     }
+    setIsCreatingCategory(false);
   };
 
   return (
     <aside className="sidebar">
-      {/* â”€â”€ Wordmark â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── Wordmark ────────────────────────────── */}
       <div className="sidebar-wordmark">
         <div className="sidebar-logo">
           <svg viewBox="0 0 16 16" width="14" height="14" fill="none">
@@ -67,7 +64,7 @@ export function Sidebar({ currentView, tasks, categories, onViewChange, onDelete
         <span className="sidebar-app-name">Santios</span>
       </div>
 
-      {/* â”€â”€ Smart Views Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── Smart Views Grid ────────────────────────────── */}
       <div className="sidebar-global-grid">
         <div
           className={`global-card card-today ${currentView === 'today' ? 'active' : ''}`}
@@ -92,7 +89,7 @@ export function Sidebar({ currentView, tasks, categories, onViewChange, onDelete
             </div>
             <span className="global-card-count">{counts.upcoming}</span>
           </div>
-          <div className="global-card-title">PrÃ³ximas</div>
+          <div className="global-card-title">Próximas</div>
         </div>
 
         <div
@@ -135,7 +132,7 @@ export function Sidebar({ currentView, tasks, categories, onViewChange, onDelete
         </div>
       </div>
 
-      {/* â”€â”€ My Lists â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── My Lists ────────────────────────────── */}
       <div className="sidebar-lists-section">
         <h2 className="sidebar-section-title">Mis listas</h2>
         <nav className="sidebar-nav">
@@ -168,20 +165,29 @@ export function Sidebar({ currentView, tasks, categories, onViewChange, onDelete
             );
           })}
         </nav>
+        {onCreateCategory && (
+          <form className="sidebar-add-category-form" onSubmit={handleCreateCategorySubmit}>
+            <input
+              type="text"
+              className="sidebar-add-input"
+              placeholder="+ Nueva lista"
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              disabled={isCreatingCategory}
+            />
+          </form>
+        )}
       </div>
 
-      {/* â”€â”€ Footer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── Footer ────────────────────────────────── */}
       <div className="sidebar-footer">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span className="sidebar-version">v1.0.0 Â· @ilegalsantiago</span>
-          <div className={`cloud-status ${isSyncing ? 'syncing' : 'synced'}`} title={isSyncing ? 'Sincronizandoâ€¦' : 'Sincronizado'}>
+          <span className="sidebar-version">v2.0.0 · @ilegalsantiago</span>
+          <div className={`cloud-status ${isSyncing ? 'syncing' : 'synced'}`} title={isSyncing ? 'Sincronizando…' : 'Sincronizado'}>
             <span className={`cloud-dot ${isSyncing ? 'syncing' : ''}`} />
-            {isSyncing ? 'Syncâ€¦' : 'Synced'}
+            {isSyncing ? 'Sync…' : 'Synced'}
           </div>
         </div>
-        <button onClick={handleInitTurso} className="sidebar-action-btn">
-          â˜ Init Turso schema
-        </button>
       </div>
     </aside>
   );

@@ -9,6 +9,8 @@ import { getLocalTodayDateString } from '../utils/date';
 import { useAuth } from '../../auth/context/AuthContext';
 import { useNetworkStatus } from '../../../hooks/useNetworkStatus';
 import { OfflineBanner } from '../../../components/OfflineBanner';
+import { BottomNav } from '../../../components/BottomNav';
+import { MobileTopCards } from '../../../components/MobileTopCards';
 import './tasks.css';
 
 export function TaskApp() {
@@ -329,7 +331,8 @@ export function TaskApp() {
       today: 'Hoy',
       upcoming: 'Próximas',
       overdue: 'Vencidas',
-      completed: 'Completadas'
+      completed: 'Completadas',
+      listas: 'Mis Listas'
     };
     currentTitle = viewTitles[currentView] || 'Mis Tareas';
   }
@@ -343,6 +346,7 @@ export function TaskApp() {
         onViewChange={setCurrentView}
         onDeleteCategory={handleDeleteCategory}
         isSyncing={isSyncing}
+        onCreateCategory={handleCreateCategory}
       />
 
       <main className="main-content">
@@ -373,6 +377,17 @@ export function TaskApp() {
 
         {/* ── Scrollable body ───────────────────────── */}
         <div className="main-body">
+          {/* Tarjetas superiores en móvil: 3 primeras categorías + acceso a todas las listas */}
+          {currentView !== 'listas' && (
+            <MobileTopCards
+              categories={categories}
+              tasks={tasks}
+              currentView={currentView}
+              onViewChange={setCurrentView}
+              onCreateCategory={handleCreateCategory}
+            />
+          )}
+
           {currentView === 'listas' ? (
             <div className="category-grid-mobile">
               {categories.map(cat => {
@@ -413,29 +428,23 @@ export function TaskApp() {
               </div>
             </>
           )}
+
+          {/* ── Mobile Footer (v2.0.0 · @ilegalsantiago + Sincronización) ── */}
+          <footer className="mobile-footer">
+            <span className="mobile-footer-version">v2.0.0 · @ilegalsantiago</span>
+            <div className={`cloud-status ${isSyncing ? 'syncing' : 'synced'}`} title={isSyncing ? 'Sincronizando…' : 'Sincronizado'}>
+              <span className={`cloud-dot ${isSyncing ? 'syncing' : ''}`} />
+              {isSyncing ? 'Sync…' : 'Synced'}
+            </div>
+          </footer>
         </div>
 
         {/* ── Mobile Bottom Nav ─────────────────────── */}
-        <nav className="bottom-nav" aria-label="Navegación principal">
-          {([
-            { view: 'all',       label: 'Todas',      count: tasks.filter(t => t.status !== 'completed').length, icon: <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"/><path d="M6 8h12M6 12h12M6 16h12"/></svg> },
-            { view: 'today',     label: 'Hoy',        count: tasks.filter(t => t.status !== 'completed' && t.due_date === new Date().toISOString().slice(0,10)).length, icon: <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> },
-            { view: 'upcoming',  label: 'Programado', count: tasks.filter(t => t.status !== 'completed' && t.due_date && t.due_date > new Date().toISOString().slice(0,10)).length, icon: <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> },
-            { view: 'completed', label: 'Hechas',     count: 0, icon: <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> },
-            { view: 'listas',    label: 'Listas',     count: categories.length, icon: <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> },
-          ] as const).map(({ view, label, count, icon }) => (
-            <button
-              key={view}
-              className={`bottom-nav-item ${currentView === view || (view === 'listas' && typeof currentView === 'string' && !['all', 'today', 'upcoming', 'overdue', 'completed'].includes(currentView)) ? 'active' : ''}`}
-              onClick={() => setCurrentView(view)}
-              aria-label={label}
-            >
-              <span className="bottom-nav-icon">{icon}</span>
-              {count > 0 && <span className="bottom-nav-badge">{count}</span>}
-              <span className="bottom-nav-label">{label}</span>
-            </button>
-          ))}
-        </nav>
+        <BottomNav
+          currentView={currentView}
+          onViewChange={setCurrentView}
+          tasks={tasks}
+        />
       </main>
     </div>
   );

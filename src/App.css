@@ -1,4 +1,4 @@
-﻿/* â”€â”€ Global Reset â€” Premium App â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* â”€â”€ Global Reset â€” Premium App â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 *,
 *::before,
 *::after {
@@ -22,6 +22,12 @@ body,
   width: 100%;
   overflow: hidden;
   background: #18181b; /* matches --bg-root; avoids FOUC */
+  /* iOS PWA: prevent full-page rubber-banding in Safari */
+  overscroll-behavior-y: none;
+  /* Eliminate WebKit gray tap flash on all interactive elements */
+  -webkit-tap-highlight-color: transparent;
+  /* Prevent accidental text selection on touch */
+  user-select: none;
 }
 
 /* Spinner â€” referenced in App.tsx loading state */

@@ -139,7 +139,7 @@ export function TaskItem({ task, categories, autoExpand, onToggle, onDelete, onU
           />
           
           <div className="task-title-wrapper">
-            <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
               <div className={`task-priority-dot ${task.priority}`} title={`Prioridad ${task.priority}`}></div>
               {isEditing ? (
                 <input
@@ -177,8 +177,16 @@ export function TaskItem({ task, categories, autoExpand, onToggle, onDelete, onU
               {task.category_id && task.category_name && (
                 <span 
                   className="task-category-chip"
-                  style={task.category_color ? { borderColor: task.category_color, color: task.category_color, backgroundColor: 'transparent' } : undefined}
+                  style={task.category_color ? {
+                    borderColor: `color-mix(in srgb, ${task.category_color} 32%, transparent)`,
+                    color: task.category_color,
+                    backgroundColor: `color-mix(in srgb, ${task.category_color} 14%, transparent)`,
+                  } : undefined}
                 >
+                  <span
+                    className="task-category-dot"
+                    style={{ backgroundColor: task.category_color || 'var(--text-muted)' }}
+                  />
                   {task.category_name}
                 </span>
               )}
