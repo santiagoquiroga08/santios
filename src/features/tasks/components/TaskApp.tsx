@@ -7,10 +7,13 @@ import { TaskList } from './TaskList';
 import { Sidebar, ViewType } from './Sidebar';
 import { getLocalTodayDateString } from '../utils/date';
 import { useAuth } from '../../auth/context/AuthContext';
+import { useNetworkStatus } from '../../../hooks/useNetworkStatus';
+import { OfflineBanner } from '../../../components/OfflineBanner';
 import './tasks.css';
 
 export function TaskApp() {
   const { user } = useAuth();
+  const isOnline = useNetworkStatus();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -19,11 +22,14 @@ export function TaskApp() {
   const [autoExpandTaskId, setAutoExpandTaskId] = useState<string | null>(null);
   const syncInProgress = useRef(false);
 
+  // Carga inicial y auto-recuperación de datos al volver a estar online
   useEffect(() => {
     if (user) {
-      loadData();
+      if (isTauri || isOnline) {
+        loadData();
+      }
     }
-  }, [user]);
+  }, [user, isOnline]);
 
   // Ejecuta la sincronización en segundo plano al recuperar el foco
   useEffect(() => {
@@ -56,7 +62,7 @@ export function TaskApp() {
   };
 
   const handleSyncBackground = async () => {
-    if (!user || syncInProgress.current || !isTauri) return;
+    if (!user || syncInProgress.current || !isTauri || !isOnline) return;
     
     syncInProgress.current = true;
     setIsSyncing(true);
@@ -67,7 +73,6 @@ export function TaskApp() {
       await loadData();
     } catch (error) {
       console.error('Error en auto-sync:', error);
-      alert('Error de Sincronización Oculto: ' + String(error));
     } finally {
       syncInProgress.current = false;
       setIsSyncing(false);
@@ -76,6 +81,13 @@ export function TaskApp() {
 
   const handleCreateTask = async (title: string) => {
     if (!user) return;
+
+    // Bloqueo defensivo en Web/PWA cuando no hay conexión a internet
+    if (!isTauri && !isOnline) {
+      alert("Sin conexión a internet. No se puede crear la tarea en la versión web.");
+      return;
+    }
+
     try {
       const due_date = currentView === 'today' ? getLocalTodayDateString() : undefined;
       const category_id = typeof currentView === 'string' && currentView.length > 10 ? currentView : undefined; // simple check if view is likely a UUID
@@ -91,64 +103,104 @@ export function TaskApp() {
       setTasks(prev => [newTask, ...prev]);
       setAutoExpandTaskId(newTask.id); // Triggers auto-expand in TaskItem
       
-      handleSyncBackground(); // Auto-sync
+      handleSyncBackground(); // Auto-sync (silenciado si offline)
     } catch (error) {
       console.error("Error creating task:", error);
+      alert("No se pudo crear la tarea debido a un error de conexión con la base de datos.");
     }
   };
 
   const handleCreateCategory = async (name: string, color: string | null = null) => {
     if (!user) return null;
+
+    // Bloqueo defensivo en Web/PWA cuando no hay conexión a internet
+    if (!isTauri && !isOnline) {
+      alert("Sin conexión a internet. No se puede crear la categoría en la versión web.");
+      return null;
+    }
+
     try {
       const newCategory = await categoryRepository.createCategory(name, color, user.id);
       setCategories(prev => [...prev, newCategory].sort((a, b) => a.name.localeCompare(b.name)));
       
-      handleSyncBackground(); // Auto-sync
+      handleSyncBackground(); // Auto-sync (silenciado si offline)
       return newCategory;
     } catch (error) {
       console.error("Error creating category:", error);
+      alert("No se pudo crear la categoría debido a un error de conexión.");
       return null;
     }
   };
 
   const handleToggleTask = async (id: string) => {
     if (!user) return;
+
+    // Bloqueo defensivo en Web/PWA cuando no hay conexión a internet
+    if (!isTauri && !isOnline) {
+      alert("Sin conexión a internet. No se puede actualizar el estado de la tarea en la versión web.");
+      return;
+    }
+
     try {
       const updatedTask = await taskRepository.toggleTaskCompletion(id, user.id);
       setTasks(prev => prev.map(t => (t.id === id ? updatedTask : t)));
       
-      handleSyncBackground(); // Auto-sync
+      handleSyncBackground(); // Auto-sync (silenciado si offline)
     } catch (error) {
       console.error("Error toggling task:", error);
+      alert("No se pudo actualizar el estado de la tarea debido a un error de conexión.");
     }
   };
 
   const handleDeleteTask = async (id: string) => {
     if (!user) return;
+
+    // Bloqueo defensivo en Web/PWA cuando no hay conexión a internet
+    if (!isTauri && !isOnline) {
+      alert("Sin conexión a internet. No se puede eliminar la tarea en la versión web.");
+      return;
+    }
+
     try {
       await taskRepository.deleteTask(id, user.id);
       setTasks(prev => prev.filter(t => t.id !== id));
       
-      handleSyncBackground(); // Auto-sync
+      handleSyncBackground(); // Auto-sync (silenciado si offline)
     } catch (error) {
       console.error("Error deleting task:", error);
+      alert("No se pudo eliminar la tarea debido a un error de conexión.");
     }
   };
 
   const handleUpdateTask = async (id: string, updates: import('../types').UpdateTaskInput) => {
     if (!user) return;
+
+    // Bloqueo defensivo en Web/PWA cuando no hay conexión a internet
+    if (!isTauri && !isOnline) {
+      alert("Sin conexión a internet. No se pueden guardar las modificaciones en la versión web.");
+      return;
+    }
+
     try {
       const updatedTask = await taskRepository.updateTask(id, updates, user.id);
       setTasks(prev => prev.map(t => (t.id === id ? updatedTask : t)));
       
-      handleSyncBackground(); // Auto-sync
+      handleSyncBackground(); // Auto-sync (silenciado si offline)
     } catch (error) {
       console.error("Error updating task:", error);
+      alert("No se pudo guardar la tarea debido a un error de conexión.");
     }
   };
 
   const handleDeleteCategory = async (id: string) => {
     if (!user) return;
+
+    // Bloqueo defensivo en Web/PWA cuando no hay conexión a internet
+    if (!isTauri && !isOnline) {
+      alert("Sin conexión a internet. No se puede eliminar la categoría en la versión web.");
+      return;
+    }
+
     try {
       await categoryRepository.deleteCategory(id, user.id);
       setCategories(prev => prev.filter(c => c.id !== id));
@@ -163,22 +215,31 @@ export function TaskApp() {
         setCurrentView('all');
       }
       
-      handleSyncBackground(); // Auto-sync
+      handleSyncBackground(); // Auto-sync (silenciado si offline)
     } catch (error) {
       console.error("Error deleting category:", error);
+      alert("No se pudo eliminar la categoría debido a un error de conexión.");
     }
   };
 
   const handleEmptyCompletedTasks = async () => {
     if (!user) return;
+
+    // Bloqueo defensivo en Web/PWA cuando no hay conexión a internet
+    if (!isTauri && !isOnline) {
+      alert("Sin conexión a internet. No se pueden vaciar las tareas en la versión web.");
+      return;
+    }
+
     if (window.confirm("¿Seguro que quieres vaciar todas las tareas completadas?")) {
       try {
         await taskRepository.deleteAllCompletedTasks(user.id);
         setTasks(prev => prev.filter(t => t.status !== 'completed'));
         
-        handleSyncBackground(); // Auto-sync
+        handleSyncBackground(); // Auto-sync (silenciado si offline)
       } catch (error) {
         console.error("Error emptying completed tasks:", error);
+        alert("No se pudieron vaciar las tareas completadas debido a un error de conexión.");
       }
     }
   };
@@ -285,6 +346,8 @@ export function TaskApp() {
       />
 
       <main className="main-content">
+        <OfflineBanner isOnline={isOnline} />
+
         {/* ── Header ────────────────────────────────── */}
         <div className="main-header">
           <h1
